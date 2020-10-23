@@ -1,0 +1,256 @@
+{% extends 'analysis/base.html' %}
+
+{% block content %}
+
+<div id="container">
+
+  <h2>Upload</h2>
+  <form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    <input type="file" name="document">
+    <!--<button type="submit" onclick="buttonFunc()">Upload file</button>-->
+    <button type="submit" onclick="myFun()">Upload file</button>
+  </form>
+  <!--<p>Uploaded file: <a id="medlink" href="../../media/">Video</a></p>-->
+  {% if url %}
+      <p id="media-url">Uploaded file: <a href="{{ url }}">{{ url }}</a></p>
+      <video width="640" height="360" controls>
+        <source src="{{ url }}" type="video/mp4">
+      Your browser does not support the video tag.
+      </video>
+    {% endif %}
+  
+    <p> The video is split in 4 equal parts for analysis</p>
+    <br><br>
+    <h2>Transcript</h2>
+    <p>{{ alltext }}</p>
+    <br><br>
+    <canvas id="line-chart" width="800" height="450"></canvas>
+    <br><br>
+    <style>
+      .wrapper {
+        display: flex;
+        overflow-x: auto;
+      }    
+    </style>
+    <h2>Word Cloud</h2>
+    <figure class="highcharts-figure">
+      <div id="wc1"></div>
+      <p class="highcharts-description"></p>
+    </figure>
+    <!--
+    <div class="wrapper">
+      <figure class="highcharts-figure">
+        <div id="wc1"></div>
+        <p class="highcharts-description"></p>
+      </figure>
+      <figure class="highcharts-figure">
+        <div id="wc2"></div>
+        <p class="highcharts-description"></p>
+      </figure>
+      <figure class="highcharts-figure">
+        <div id="wc3"></div>
+        <p class="highcharts-description"></p>
+      </figure>
+      <figure class="highcharts-figure">
+        <div id="wc4"></div>
+        <p class="highcharts-description"></p>
+      </figure>
+    </div>
+    -->
+
+    <h2>Frequency of words used</h2>
+    <canvas id="hb1" width="800" height="450"></canvas>
+    <!--
+    <div class="wrapper">
+      <canvas id="hb1" width="800" height="450"></canvas>
+      <canvas id="hb2" width="800" height="450"></canvas>
+      <canvas id="hb3" width="800" height="450"></canvas>
+      <canvas id="hb4" width="800" height="450"></canvas>
+    </div>
+    -->
+    
+    <h2>Personality Insights</h2>
+    <div class="wrapper">
+      <canvas id="bcg1" width="800" height="450"></canvas>
+      <canvas id="bcg2" width="800" height="450"></canvas>
+      <canvas id="bcg3" width="800" height="450"></canvas>
+    </div>
+    
+    <h2>Tones detected</h2>
+    <p style="white-space: pre-line">
+      {{finTones}}
+    </p>
+</div>
+<!--
+<script>
+  function buttonFunc() {
+    console.log('btn');
+    let str1 = "";/*
+    $.getJSON("../static/JSON/url.json", function(json) {
+      console.log(json.url); // this will show the info it in firebug console
+      str1 = String(json.url)
+      let str2 = "../..";
+      let str3 = str2.concat(str1);
+      console.log(str3);
+      $("#medlink").attr("href", str3);
+    });*/
+    $.ajax({
+      method: "GET",
+      url: '/data',
+      success: function(data) {
+        str1 = String(data.url)
+        let str2 = "../..";
+        let str3 = str2.concat(str1);
+        console.log(str3);
+        $("#medlink").attr("href", str3);
+      }
+    });
+
+  }
+</script>
+-->
+
+<script>   
+
+    let result = {{ result|safe }};
+    new Chart(document.getElementById("line-chart"), {
+      type: 'line',
+      data: {
+        labels: result['sentiment']['xAxis'],
+        datasets: [{ 
+            data: result['sentiment']['yAxis']['pos'],
+            label: "Positive",
+            borderColor: "#3e95cd",
+            fill: false
+          }, { 
+            data: result['sentiment']['yAxis']['neg'],
+            label: "Negative",
+            borderColor: "#8e5ea2",
+            fill: false
+          }, { 
+            data: result['sentiment']['yAxis']['compound'],
+            label: "Compound",
+            borderColor: "#3cba9f",
+            fill: false
+          }
+        ]
+      },
+      options: {
+        title: {
+          display: true,
+          text: 'Sentiment Score Vs Time'
+        }
+      }
+    });
+  
+    LineHBar = function (id) {
+      new Chart(document.getElementById(id), {
+        type: 'horizontalBar',
+        data: {
+          labels: result['wordFrequencyData'][0],
+          datasets: [
+            {
+              label: "Count",
+              backgroundColor: "#3e95cd",
+              data: result['wordFrequencyData'][1]
+            }
+          ]
+        },
+        options: {
+          legend: { display: false },
+          title: {
+            display: true,
+            text: 'Frequency of words used'
+          },
+          scales : {
+            xAxes: [{
+                ticks: {
+                    beginAtZero: true,
+                    stepSize: 1
+                }
+            }]
+          }
+        }
+        });
+    }
+    LineHBar("hb1");
+
+    barGrp = function (id, quality) {
+      new Chart(document.getElementById(id), {
+        type: 'bar',
+        data: {
+          labels: result['personality'][quality]['labels'],
+          datasets: [
+            {
+              label: "percentile",
+              backgroundColor: "#3e95cd",
+              data: result['personality'][quality]['per']
+            }, {
+              label: "raw score",
+              backgroundColor: "#8e5ea2",
+              data: result['personality'][quality]['raw']
+            }
+          ]
+        },
+        options: {
+          title: {
+            display: true,
+            text: quality + ' Scores'
+          }
+        }
+      });
+    }
+    barGrp("bcg1","Personality");
+    barGrp("bcg2","Values");
+    barGrp("bcg3","Needs");
+
+    wcloud = function(id) {
+      //var text = 'text'
+      var text = result['allText']
+      var lines = text.split(/[,\. ]+/g),
+          data = Highcharts.reduce(lines, function (arr, word) {
+              var obj = Highcharts.find(arr, function (obj) {
+                  return obj.name === word;
+              });
+              if (obj) {
+                  obj.weight += 1;
+              } else {
+                  obj = {
+                      name: word,
+                      weight: 1
+                  };
+                  arr.push(obj);
+              }
+              return arr;
+          }, []);
+
+      Highcharts.chart(id, {
+          accessibility: {
+              screenReaderSection: {
+                  beforeChartFormat: '<h5>{chartTitle}</h5>' +
+                      '<div>{chartSubtitle}</div>' +
+                      '<div>{chartLongdesc}</div>' +
+                      '<div>{viewTableButton}</div>'
+              }
+          },
+          series: [{
+              type: 'wordcloud',
+              data: data,
+              name: 'Occurrences'
+          }],
+          title: {
+              text: 'Wordcloud of transcript'
+          }
+      });
+    }
+    
+    wcloud("wc1");
+
+    
+    
+  </script>
+
+
+  
+{% endblock %}

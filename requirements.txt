@@ -1,0 +1,7 @@
+nltk==3.5
+Django==3.0.3
+numpy==1.19.1
+ibm_watson==4.7.1
+tinytag==1.4.0
+ibm_cloud_sdk_core==1.7.3
+vaderSentiment==3.3.2
